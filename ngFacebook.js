@@ -14,9 +14,9 @@ angular.module('ngFacebook', [])
     var config = {
       permissions:    'email',
       appId:          null,
-      version:        'v1.0',
       customInit:     {}
     };
+
 
     this.setAppId = function(appId) {
       config.appId=appId;
@@ -25,17 +25,7 @@ angular.module('ngFacebook', [])
     this.getAppId = function() {
       return config.appId;
     };
-    this.setVersion = function(version) {
-      config.version=version;
-      return this;
-    };
-    this.getVersion = function() {
-      return config.version;
-    };
     this.setPermissions = function(permissions) {
-      if(permissions instanceof Array) {
-        permissions.join(',');
-      }
       config.permissions=permissions;
       return this;
     };
@@ -43,9 +33,6 @@ angular.module('ngFacebook', [])
       return config.permissions;
     };
     this.setCustomInit = function(customInit) {
-      if(angular.isDefined(customInit.appId)) {
-        this.setAppId(customInit.appId);
-      }
       config.customInit=customInit;
       return this;
     };
@@ -65,7 +52,7 @@ angular.module('ngFacebook', [])
           throw "$facebookProvider: `appId` cannot be null";
 
         $window.FB.init(
-          angular.extend({ appId: $facebook.config('appId'), version: $facebook.config('version') }, $facebook.config("customInit"))
+          angular.extend({ appId: $facebook.config('appId') }, $facebook.config("customInit"))
         );
         $rootScope.$broadcast("fb.load", $window.FB);
       };
@@ -152,21 +139,16 @@ angular.module('ngFacebook', [])
           return deferred.promise;
         });
       };
-      $facebook.login = function (permissions, rerequest) {
-        if(permissions==undefined) permissions=$facebook.config("permissions");
+      $facebook.login = function (permissions) {
+        if(permissions==undefined) var permissions=$facebook.config("permissions");
         var deferred=$q.defer();
-
-        var loginOptions = { scope: permissions };
-        if (rerequest) {
-          loginOptions.auth_type = 'rerequest';
-        }
 
         return $facebook.promise.then(function(FB) {
           FB.login(function(response) {
             if(response.error)  deferred.reject(response.error);
             else                deferred.resolve(response);
             if(!$rootScope.$$phase) $rootScope.$apply();
-          }, loginOptions);
+          }, { scope: permissions });
           return deferred.promise;
         });
       };
@@ -187,10 +169,15 @@ angular.module('ngFacebook', [])
 
         return $facebook.promise.then(function(FB) {
           FB.ui(params, function(response) {
-            if(response && response.error_code) {
-              deferred.reject(response.error_message);
-            } else {
-              deferred.resolve(response);
+        	  //Fixed issue related to UI callback
+            if(response && response.request){
+            	deferred.resolve(response);
+            }
+            else if (response && response.error){
+            	deferred.reject(response.error);
+            }
+            else{
+            	deferred.reject("Dont know what happend");
             }
             if(!$rootScope.$$phase) $rootScope.$apply();
           });
